@@ -35,6 +35,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
+    private FloatingActionButton btnTakePicture;
+
     private Camera camera;
     private int cameraId = -1;
 
@@ -54,14 +56,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (Math.abs(x) > Math.abs(y)) {  // landscape
                 if (x > 0) {  // 90
                     realRotation = 1;
+                    btnTakePicture.setRotation(90);
                 } else {  // 270
                     realRotation = 3;
+                    btnTakePicture.setRotation(270);
                 }
             } else if (Math.abs(x) < Math.abs(y)) {  // portrait
                 if (y > 0) {  // 0
                     realRotation = 0;
+                    btnTakePicture.setRotation(0);
                 } else {  // 180
                     realRotation = 2;
+                    btnTakePicture.setRotation(180);
                 }
             }
         }
@@ -93,14 +99,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Log.d(this.getClass().getName(), "onCreate");
         super.onCreate(savedInstanceState);
 
-
-        // permissions
-        try {
-            PermissionsHelper.makeSurePerms(this);
-        } catch (Exception e) {
-            Log.e(this.getClass().getName(), "Cannot access the camera.", e);
-        }
-
         // sensors
         this.mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         this.mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -111,6 +109,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Find the SurfaceView and request a Surface from it.
         surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
+
+        // other views
+        btnTakePicture = findViewById(R.id.cameraButton);
 
         // Open the camera. Requested from the user if necessary.
         if (cameraId == -1) {
@@ -187,7 +188,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         };
         surfaceHolder.addCallback(callback);
 
-        FloatingActionButton btnTakePicture = findViewById(R.id.cameraButton);
         btnTakePicture.setOnClickListener(new View.OnClickListener() {
 
             @Override
@@ -270,6 +270,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Log.d(this.getClass().getName(), "onStop");
         super.onStop();
         camera.stopPreview();
+        camera.release();
+        camera = null;
     }
 
     @Override
@@ -295,6 +297,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onResume() {
         Log.d(this.getClass().getName(), "onResume");
         super.onResume();
+        try {
+            if(camera == null) camera = Camera.open(cameraId);
+            camera.setPreviewDisplay(surfaceHolder);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         camera.startPreview();
         mSensorManager.registerListener(this, mAccelerometer, 200000);
     }

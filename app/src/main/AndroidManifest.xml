@@ -5,19 +5,17 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="true" />
-    <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Devices running Android 12L (API level 32) or lower  -->
+    <uses-permission android:name="android.permission.CAMERA" /> <!-- Devices running Android 12L (API level 32) or lower -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-
-    <!-- Devices running Android 13 (API level 33) or higher -->
+        android:maxSdkVersion="32" /> <!-- Devices running Android 13 (API level 33) or higher -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-
-    <!-- To handle the reselection within the app on devices running Android 14
-     or higher if your app targets Android 14 (API level 34) or higher.  -->
+    <!--
+ To handle the reselection within the app on devices running Android 14
+     or higher if your app targets Android 14 (API level 34) or higher.
+    -->
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
     <application
@@ -31,10 +29,21 @@
         android:theme="@style/Theme.Camtest2"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name=".MainChooserActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation"
+            android:exported="true"
+            android:screenOrientation="portrait">
+            <intent-filter>
+<!--                <action android:name="android.intent.action.MAIN" />-->
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
