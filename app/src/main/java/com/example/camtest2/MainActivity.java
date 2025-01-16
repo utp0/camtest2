@@ -9,14 +9,19 @@ import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintSet;
 
 import android.hardware.Camera;
 import android.provider.MediaStore;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -49,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(this.getClass().getName(), "onCreate");
         super.onCreate(savedInstanceState);
 
         // permissions
@@ -95,7 +101,38 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
                 try {
-                    surfaceSizeChanged(holder, format, width, height);
+                    // The size of the surface has changed, so we must reconfigure it.
+
+                    surfaceHolder.setFormat(format);
+                    camera.setPreviewDisplay(surfaceHolder);
+
+                    // set correct aspect ratio
+                    DisplayMetrics displayMetrics = new DisplayMetrics();
+                    getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
+                    int screenWidth = displayMetrics.widthPixels;
+                    int screenHeight = displayMetrics.heightPixels;
+                    Camera.Size previewSize = camera.getParameters().getPreviewSize();
+                    int currentRotation = getWindowManager().getDefaultDisplay().getRotation();
+                    ViewGroup.LayoutParams layoutParams;
+                    switch (currentRotation) {
+                        // portrait
+                        case Surface.ROTATION_0:
+                        case Surface.ROTATION_180:
+                            layoutParams = new ViewGroup.LayoutParams(previewSize.height, previewSize.width);
+                            camera.setDisplayOrientation(90 + (currentRotation * 90));
+                            break;
+                        // landscape
+                        case Surface.ROTATION_90:
+                        case Surface.ROTATION_270:
+                            layoutParams = new ViewGroup.LayoutParams(previewSize.width, previewSize.height);
+                            camera.setDisplayOrientation((currentRotation == 3 ? 180 : 0));
+                            break;
+                        default:
+                            // elvileg soha
+                            layoutParams = new ViewGroup.LayoutParams(64, 64);
+                            break;
+                    }
+                    surfaceView.setLayoutParams(layoutParams);
                 } catch (IOException e) {
                     throw new RuntimeException(e); // TODO: értelmesebben
                 }
@@ -105,12 +142,6 @@ public class MainActivity extends AppCompatActivity {
             public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
                 // The surface has been destroyed, so we can return.
                 camera.stopPreview();
-            }
-
-            public void surfaceSizeChanged(SurfaceHolder surfaceHolder, int format, int width, int height) throws IOException {
-                // The size of the surface has changed, so we must reconfigure it.
-                surfaceHolder.setFormat(format);
-                camera.setPreviewDisplay(surfaceHolder);
             }
         };
         surfaceHolder.addCallback(callback);
@@ -161,7 +192,46 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        Log.d(this.getClass().getName(), "onStart");
+        super.onStart();
+    }
+
+    @Override
+    protected void onStop() {
+        Log.d(this.getClass().getName(), "onStop");
+        super.onStop();
+        camera.stopPreview();
+    }
+
+    @Override
+    protected void onPostResume() {
+        Log.d(this.getClass().getName(), "onPostResume");
+        super.onPostResume();
+    }
+
+    @Override
+    protected void onPostCreate(@Nullable Bundle savedInstanceState) {
+        Log.d(this.getClass().getName(), "onPostCreate");
+        super.onPostCreate(savedInstanceState);
+    }
+
+    @Override
+    protected void onPause() {
+        Log.d(this.getClass().getName(), "onPause");
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        Log.d(this.getClass().getName(), "onResume");
+        super.onResume();
+        camera.startPreview();
+    }
+
+    @Override
     protected void onDestroy() {
+        Log.d(this.getClass().getName(), "onDestroy");
         super.onDestroy();
         if (surfaceHolder != null) {
             surfaceHolder.removeCallback(callback);
