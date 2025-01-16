@@ -1,9 +1,13 @@
 package com.example.camtest2;
 
 import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.camera2.CameraManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,7 +15,6 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintSet;
 
 import android.hardware.Camera;
 import android.provider.MediaStore;
@@ -28,7 +31,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.io.IOException;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
@@ -36,6 +39,38 @@ public class MainActivity extends AppCompatActivity {
     private int cameraId = -1;
 
     SurfaceHolder.Callback callback;
+
+    private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+    public int realRotation = 0;
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            float x = event.values[0];
+            float y = event.values[1];
+            float z = event.values[2];
+
+            if (Math.abs(x) > Math.abs(y)) {  // landscape
+                if (x > 0) {  // 90
+                    realRotation = 1;
+                } else {  // 270
+                    realRotation = 3;
+                }
+            } else if (Math.abs(x) < Math.abs(y)) {  // portrait
+                if (y > 0) {  // 0
+                    realRotation = 0;
+                } else {  // 180
+                    realRotation = 2;
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
 
     private int getAvailableCameraId() {
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
@@ -52,10 +87,12 @@ public class MainActivity extends AppCompatActivity {
         return -1;
     }
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(this.getClass().getName(), "onCreate");
         super.onCreate(savedInstanceState);
+
 
         // permissions
         try {
@@ -63,6 +100,10 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(this.getClass().getName(), "Cannot access the camera.", e);
         }
+
+        // sensors
+        this.mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        this.mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
         // set the view
         setContentView(R.layout.activity_main);
@@ -148,6 +189,7 @@ public class MainActivity extends AppCompatActivity {
 
         FloatingActionButton btnTakePicture = findViewById(R.id.cameraButton);
         btnTakePicture.setOnClickListener(new View.OnClickListener() {
+
             @Override
             public void onClick(View v) {
                 Camera.ShutterCallback shutterCallback = new Camera.ShutterCallback() {
@@ -172,12 +214,38 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onPictureTaken(byte[] data, Camera camera) {
                         ContentResolver contentResolver = getContentResolver();
-                        ContentValues contentValues = new ContentValues();
-                        Uri uri = Uri.parse(MediaStore.Images.Media.insertImage(
-                                contentResolver,
-                                BitmapFactory.decodeByteArray(data, 0, data.length),
-                                "",
-                                "")
+
+                        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+                        float angle;
+                        switch (realRotation) {
+                            // portrait
+                            case 0:
+                                angle = 90.0f;
+                                break;
+                            case 2:
+                                angle = 270.0f;
+                                break;
+                            // landscape
+                            case 1:
+                                angle = 0.0f;
+                                break;
+                            case 3:
+                                angle = 180.0f;
+                                break;
+                            default:
+                                // elvileg soha
+                                angle = 0f;
+                                break;
+                        }
+                        bitmap = ImageManipulation.rotateBitmap(bitmap, angle);
+                        Log.d("ASD", String.valueOf(angle));
+                        Uri uri = Uri.parse(
+                                MediaStore.Images.Media.insertImage(
+                                        contentResolver,
+                                        bitmap,
+                                        "",
+                                        ""
+                                )
                         );
                         if (uri != null) {
                             camera.stopPreview();
@@ -220,6 +288,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         Log.d(this.getClass().getName(), "onPause");
         super.onPause();
+        mSensorManager.unregisterListener(this);
     }
 
     @Override
@@ -227,6 +296,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d(this.getClass().getName(), "onResume");
         super.onResume();
         camera.startPreview();
+        mSensorManager.registerListener(this, mAccelerometer, 200000);
     }
 
     @Override
@@ -240,4 +310,6 @@ public class MainActivity extends AppCompatActivity {
             camera.release();
         }
     }
+
+
 }
