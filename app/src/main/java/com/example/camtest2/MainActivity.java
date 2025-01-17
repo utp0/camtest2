@@ -37,14 +37,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private SurfaceHolder surfaceHolder;
     private FloatingActionButton btnTakePicture;
 
-    private Camera camera;
-    private int cameraId = -1;
-
     SurfaceHolder.Callback callback;
 
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
     public int realRotation = 0;
+
+    private CameraHandler cameraHandler;
 
     @Override
     public void onSensorChanged(SensorEvent event) {
@@ -78,22 +77,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
-    private int getAvailableCameraId() {
-        CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        try {
-            String[] cameras = manager.getCameraIdList();
-            for (String camera : cameras) {
-                if (!camera.equals("front")) {
-                    return Integer.parseInt(camera);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace(); // TODO: értelmesebben
-        }
-        return -1;
-    }
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(this.getClass().getName(), "onCreate");
@@ -103,21 +86,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         this.mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         this.mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
+        // camera handler
+        this.cameraHandler = new CameraHandler(this);
+
         // set the view
         setContentView(R.layout.activity_main);
 
         // Find the SurfaceView and request a Surface from it.
-        surfaceView = findViewById(R.id.surfaceView);
-        surfaceHolder = surfaceView.getHolder();
+        this.surfaceView = findViewById(R.id.surfaceView);
+        this.surfaceHolder = surfaceView.getHolder();
 
         // other views
-        btnTakePicture = findViewById(R.id.cameraButton);
+        this.btnTakePicture = findViewById(R.id.cameraButton);
 
-        // Open the camera. Requested from the user if necessary.
-        if (cameraId == -1) {
-            cameraId = getAvailableCameraId();
-        }
-        camera = Camera.open(cameraId);
+        // Open the camera
+        this.cameraHandler.autoOpenCamera();
 
         // Set up a SurfaceHolder callback to be notified when the surface is available.
         SurfaceHolder.Callback callback = new SurfaceHolder.Callback() {
@@ -126,13 +109,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 // The surface has been created, assign it to the surface holder.
 
                 try {
-                    camera.setPreviewDisplay(surfaceHolder);
+                    cameraHandler.getCamera().setPreviewDisplay(surfaceHolder);
                 } catch (IOException e) {
                     throw new RuntimeException(e);  // TODO: értelmesebben
                 }
                 try {
                     // Now that we have a surface holder, we can start using it.
-                    camera.startPreview();
+                    cameraHandler.getCamera().startPreview();
                 } catch (Exception e) {
 
                     Toast.makeText(MainActivity.this, "Error starting preview:" + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -146,14 +129,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     // The size of the surface has changed, so we must reconfigure it.
 
                     surfaceHolder.setFormat(format);
-                    camera.setPreviewDisplay(surfaceHolder);
+                    cameraHandler.getCamera().setPreviewDisplay(surfaceHolder);
 
                     // set correct aspect ratio
                     DisplayMetrics displayMetrics = new DisplayMetrics();
                     getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
                     int screenWidth = displayMetrics.widthPixels;
                     int screenHeight = displayMetrics.heightPixels;
-                    Camera.Size previewSize = camera.getParameters().getPreviewSize();
+                    Camera.Size previewSize = cameraHandler.getCamera().getParameters().getPreviewSize();
                     int currentRotation = getWindowManager().getDefaultDisplay().getRotation();
                     ViewGroup.LayoutParams layoutParams;
                     switch (currentRotation) {
@@ -161,13 +144,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         case Surface.ROTATION_0:
                         case Surface.ROTATION_180:
                             layoutParams = new ViewGroup.LayoutParams(previewSize.height, previewSize.width);
-                            camera.setDisplayOrientation(90 + (currentRotation * 90));
+                            cameraHandler.getCamera().setDisplayOrientation(90 + (currentRotation * 90));
                             break;
                         // landscape
                         case Surface.ROTATION_90:
                         case Surface.ROTATION_270:
                             layoutParams = new ViewGroup.LayoutParams(previewSize.width, previewSize.height);
-                            camera.setDisplayOrientation((currentRotation == 3 ? 180 : 0));
+                            cameraHandler.getCamera().setDisplayOrientation((currentRotation == 3 ? 180 : 0));
                             break;
                         default:
                             // elvileg soha
@@ -183,7 +166,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
                 // The surface has been destroyed, so we can return.
-                camera.stopPreview();
+                cameraHandler.getCamera().stopPreview();
             }
         };
         surfaceHolder.addCallback(callback);
@@ -191,7 +174,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         surfaceView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                camera.autoFocus(null);
+                cameraHandler.getCamera().autoFocus(null);
             }
         });
 
@@ -261,7 +244,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         Log.d("IMAGE OUT", String.valueOf(uri));
                     }
                 };
-                camera.takePicture(shutterCallback, rawCallback, postviewCallback, jpegCallback);
+                cameraHandler.getCamera().takePicture(shutterCallback, rawCallback, postviewCallback, jpegCallback);
             }
         });
     }
@@ -276,9 +259,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onStop() {
         Log.d(this.getClass().getName(), "onStop");
         super.onStop();
-        camera.stopPreview();
-        camera.release();
-        camera = null;
+        this.cameraHandler.releaseCamera();
     }
 
     @Override
@@ -297,7 +278,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onPause() {
         Log.d(this.getClass().getName(), "onPause");
         super.onPause();
-        mSensorManager.unregisterListener(this);
+        this.mSensorManager.unregisterListener(this);
     }
 
     @Override
@@ -305,13 +286,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Log.d(this.getClass().getName(), "onResume");
         super.onResume();
         try {
-            if(camera == null) camera = Camera.open(cameraId);
-            camera.setPreviewDisplay(surfaceHolder);
+            this.cameraHandler.autoOpenCamera();
+            this.cameraHandler.getCamera().setPreviewDisplay(surfaceHolder);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        camera.startPreview();
-        mSensorManager.registerListener(this, mAccelerometer, 200000);
+        this.cameraHandler.getCamera().startPreview();
+        this.mSensorManager.registerListener(this, this.mAccelerometer, 200000);
     }
 
     @Override
@@ -319,11 +300,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Log.d(this.getClass().getName(), "onDestroy");
         super.onDestroy();
         if (surfaceHolder != null) {
-            surfaceHolder.removeCallback(callback);
+            this.surfaceHolder.removeCallback(callback);
         }
-        if (camera != null) {
-            camera.release();
-        }
+        this.cameraHandler.releaseCamera();
     }
 
 
