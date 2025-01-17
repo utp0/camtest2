@@ -188,6 +188,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         };
         surfaceHolder.addCallback(callback);
 
+        surfaceView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                camera.autoFocus(null);
+            }
+        });
+
         btnTakePicture.setOnClickListener(new View.OnClickListener() {
 
             @Override
