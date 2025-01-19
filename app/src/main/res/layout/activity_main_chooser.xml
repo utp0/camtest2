@@ -16,6 +16,13 @@
         app:layout_constraintStart_toStartOf="parent"
         >
 
+        <Switch
+            android:id="@+id/switchWebo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="WEBP" />
+
         <Button
             android:id="@+id/btnPermissions"
             android:layout_width="wrap_content"

@@ -3,6 +3,7 @@ package com.example.camtest2;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
@@ -143,25 +144,35 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     int screenHeight = displayMetrics.heightPixels;
                     Camera.Size previewSize = cameraHandler.getCamera().getParameters().getPreviewSize();
                     int currentRotation = getWindowManager().getDefaultDisplay().getRotation();
+
+                    // calculate correct size
+                    float wMul = (float) screenWidth / (float) previewSize.height;
+                    float hMul = (float) screenHeight / (float) previewSize.width;
+                    float ratio = Math.min(wMul, hMul);
+                    int w = (int) (previewSize.width * ratio);
+                    int h = (int) (previewSize.height * ratio);
+
                     ViewGroup.LayoutParams layoutParams;
-                    switch (currentRotation) {
+                    layoutParams = new ViewGroup.LayoutParams(h, w);
+                    cameraHandler.getCamera().setDisplayOrientation(90 + (currentRotation * 90));
+                    /*switch (currentRotation) {
                         // portrait
                         case Surface.ROTATION_0:
                         case Surface.ROTATION_180:
-                            layoutParams = new ViewGroup.LayoutParams(previewSize.height, previewSize.width);
+                            layoutParams = new ViewGroup.LayoutParams(w, h);
                             cameraHandler.getCamera().setDisplayOrientation(90 + (currentRotation * 90));
                             break;
                         // landscape
                         case Surface.ROTATION_90:
                         case Surface.ROTATION_270:
-                            layoutParams = new ViewGroup.LayoutParams(previewSize.width, previewSize.height);
+                            layoutParams = new ViewGroup.LayoutParams(h, w);
                             cameraHandler.getCamera().setDisplayOrientation((currentRotation == 3 ? 180 : 0));
                             break;
                         default:
                             // elvileg soha
                             layoutParams = new ViewGroup.LayoutParams(64, 64);
                             break;
-                    }
+                    }*/
                     surfaceView.setLayoutParams(layoutParams);
                 } catch (IOException e) {
                     throw new RuntimeException(e); // TODO: értelmesebben
@@ -238,20 +249,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         File file = null;
                         FileOutputStream fos = null;
                         try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            SharedPreferences sharedPreferences = getSharedPreferences("settings", Context.MODE_PRIVATE);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && sharedPreferences.getBoolean("webp", false)) {
                                 file = new File(getBaseContext().getDataDir(), "image" + System.currentTimeMillis() + ".webp");
                             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                                 file = new File(getBaseContext().getDataDir(), "image" + System.currentTimeMillis() + ".jpg");
                             } else {
-                                // TODO: Support API < 24
+                                // TODO: Support API < 24 (getDataDir)
                                 throw new UnknownError("Vegyél újabb telefont");
                             }
                             if (!file.exists()) {
                                 file.createNewFile();
                             }
                             fos = new FileOutputStream(file, false);
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, fos);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && sharedPreferences.getBoolean("webp", false)) {
+                                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 0, fos);
                             } else {
                                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
                             }
