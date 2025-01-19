@@ -1,6 +1,7 @@
 package com.example.camtest2;
 
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -10,6 +11,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.hardware.camera2.CameraManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -29,6 +31,9 @@ import android.widget.Toast;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
@@ -223,25 +228,55 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                                 angle = 180.0f;
                                 break;
                             default:
-                                // elvileg soha
+                                // never?
                                 angle = 0f;
                                 break;
                         }
                         bitmap = ImageManipulation.rotateBitmap(bitmap, angle);
                         Log.d("ASD", String.valueOf(angle));
-                        Uri uri = Uri.parse(
+
+                        File file = null;
+                        FileOutputStream fos = null;
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                file = new File(getBaseContext().getDataDir(), "image" + System.currentTimeMillis() + ".webp");
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                file = new File(getBaseContext().getDataDir(), "image" + System.currentTimeMillis() + ".jpg");
+                            } else {
+                                // TODO: Support API < 24
+                                throw new UnknownError("Vegyél újabb telefont");
+                            }
+                            if (!file.exists()) {
+                                file.createNewFile();
+                            }
+                            fos = new FileOutputStream(file, false);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, fos);
+                            } else {
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        } finally {
+                            Log.d("IMAGE OUT", String.valueOf(file));
+                            if (fos != null) {
+                                try {
+                                    fos.close();
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                        }
+                        /*Uri uri = Uri.parse(
                                 MediaStore.Images.Media.insertImage(
                                         contentResolver,
                                         bitmap,
                                         "",
                                         ""
                                 )
-                        );
-                        if (uri != null) {
-                            camera.stopPreview();
-                            camera.startPreview();
-                        }
-                        Log.d("IMAGE OUT", String.valueOf(uri));
+                        );*/
+                        camera.stopPreview();
+                        camera.startPreview();
                     }
                 };
                 cameraHandler.getCamera().takePicture(shutterCallback, rawCallback, postviewCallback, jpegCallback);
